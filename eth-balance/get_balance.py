@@ -77,6 +77,13 @@ def print_balance(balance: dict):
         if token != ETHEREUM and balance[token] > 0:
             print(" "*6 + f"{token.symbol:<5}: {balance[token]:.6f} - {get_price(token.name) * balance[token]} usd")
 
+def get_total(balance: dict):
+    total = 0
+    for token in balance.keys():
+        if balance[token] > 0:
+            total += get_price(token.name) * balance[token]
+    return total
+
 
 if __name__ == "__main__":
     # Initialize the globals
@@ -100,3 +107,5 @@ if __name__ == "__main__":
     print("Combined")
     combined_balance = dict(functools.reduce(operator.add, map(collections.Counter, balances)))
     print_balance(combined_balance)
+    print()
+    print(f"TOTAL: {get_total(combined_balance):.2f} usd")
