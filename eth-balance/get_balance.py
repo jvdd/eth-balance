@@ -60,22 +60,30 @@ def get_erc20_balances(address: str):
 
 # ------------------------------------------------------------------------------------ #
 
-def get_balance(address: str):
+def get_price(name: str, currency="usd") -> float:
+    name = name.lower().replace("token", "").replace(" ","-").strip()
+    try:
+        return cg.get_price(ids=name, vs_currencies=currency)[name][currency]
+    except:
+        return 0
+
+def get_balance(address: str) -> dict:
     balance = {}
     balance[ETHEREUM] = get_eth_balance(address)
     balance.update(get_erc20_balances(address))
+    for token in balance.keys():
+        balance[token] = (balance[token], get_price(token.name))
     return balance
 
-def get_price(name: str, currency="usd") -> float:
-    name = name.lower().replace("token", "").strip()
-    return cg.get_price(ids=name, vs_currencies=currency)[name][currency]
-
 def print_balance(balance: dict):
-    print(f"ETH Balance: {balance[ETHEREUM]:.6f} - {get_price(ETHEREUM.name) * balance[ETHEREUM]} usd")
+    print(f"ETH Balance: {balance[ETHEREUM][0]:.6f} - ${balance[ETHEREUM][0]*balance[ETHEREUM][1]:.2f}")
+    tokens = [k for k in balance.keys() if balance[k][0] > 0 and k != ETHEREUM]
+    if not len(tokens):
+        return
     print("Tokens:")
-    for token in balance.keys():
-        if token != ETHEREUM and balance[token] > 0:
-            print(" "*6 + f"{token.symbol:<5}: {balance[token]:.6f} - {get_price(token.name) * balance[token]} usd")
+    for token in tokens:
+        amount, value = balance[token]
+        print(" "*6 + f"{token.symbol:<5}: {amount:.6f} - ${amount*value:.2f}")
 
 def get_total(balance: dict):
     total = 0
@@ -95,17 +103,21 @@ if __name__ == "__main__":
             addresses.append(line.strip())
 
     # Print the balances for the addresses
-    balances = []
+    total_balance = {}
     for address in addresses:
         print("Address:", address)
         balance = get_balance(address)
         print_balance(balance)
-        balances.append(balance)
+        for k in balance.keys():
+            if k in total_balance.keys():
+                total_balance[k] = (total_balance[k][0] + balance[k][0], balance[k][1])
+            else:
+                total_balance[k] = balance[k]
         print()
 
     # Print the totals
     print("Combined")
-    combined_balance = dict(functools.reduce(operator.add, map(collections.Counter, balances)))
-    print_balance(combined_balance)
+    print_balance(total_balance)
     print()
-    print(f"TOTAL: {get_total(combined_balance):.2f} usd")
+    total = sum(v[0]*v[1] for v in total_balance.values())
+    print(f"TOTAL: ${total:.2f}")
